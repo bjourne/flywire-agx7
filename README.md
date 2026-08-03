@@ -63,6 +63,19 @@ PYTHONPATH=. python flysim/scripts.py synthesize \
 The optional switches `--board` and `--board-package` specifies the
 FPGA model.
 
+To run the synthesized kernel:
+
+```
+PYTHONPATH=. python flysim/scripts.py simulate \
+    --connectome=/path/to/Connectivity_783.parquet \
+    --n-ticks=100 --fp-bits=32 --n-loops=10 \
+	--spike-frac=0.00205000 --sim-seed=2000 \
+    opencl \
+    --ocl-path=/tmp/kernel-DATE-TIME.aocx \
+    --neu-align=16 --syn-align=16 --syn-grp-align=2 --n-lanes=4 \
+    --platform-index=X
+```
+
 To print experimental data:
 
 ```
