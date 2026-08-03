@@ -1,12 +1,17 @@
 # Copyright (C) 2026 Björn A. Lindqvist <bjourne@gmail.com>
 from collections import namedtuple
+from datetime import datetime
 from flysim import (
     EXT_BUF_ROWS,
     cache_to_file,
     sim_brian2,
     sim_numpy,
-    sim_opencl
+    sim_opencl,
+    tables
 )
+from flysim.sim_opencl import get_preprocessor_defines
+from myopencl.utils import format_opts
+from os import system
 from pathlib import Path
 from random import choice, randrange, sample, seed as rseed, uniform
 
@@ -288,6 +293,131 @@ def opencl(
 @click.pass_context
 def brian2(ctx):
     run_sim(ctx.obj, sim_brian2.sim, "brian2")
+
+@cli.command(
+    help = "Synthesize a simulator using the Intel FPGA SDK for OpenCL"
+)
+@click.option(
+    "--seed",
+    type = int,
+    required = True,
+    help = "Seed for synthesis"
+)
+@click.option(
+    "--connectome",
+    type = click.Path(exists = True, path_type = Path),
+    required = True
+)
+@click.option(
+    "--max-n-neurons",
+    type = int,
+    default = None,
+    help = "Maximum number of neurons"
+)
+@click.option(
+    "--fp-bits",
+    type = int,
+    help = "Number of FP bits",
+    required = True
+)
+@click.option(
+    "--ocl-path",
+    type = click.Path(exists = True, path_type = Path),
+    required = True
+)
+@click.option(
+    "--output-path",
+    type = click.Path(exists = True, path_type = Path),
+    required = True
+)
+@click.option(
+    "--neu-align",
+    type = int,
+    help = "Neuron alignment",
+    required = True
+)
+@click.option(
+    "--syn-align",
+    type = int,
+    help = "Synapse alignment",
+    required = True
+)
+@click.option(
+    "--syn-grp-align",
+    help = "Alignment of synapse groups",
+    required = True
+)
+@click.option(
+    "--n-lanes",
+    help = "Number of lanes for privatization",
+    required = True
+)
+@click.option(
+    "--only-rtl", is_flag = True,
+    help = "Only RTL generation"
+)
+@click.option(
+    "--board-package",
+    type = click.Path(exists = True),
+)
+@click.option(
+    "--board",
+    type = str,
+)
+def synthesize(
+        seed,
+        connectome,
+        max_n_neurons, fp_bits, ocl_path, output_path,
+        neu_align, syn_align, syn_grp_align, n_lanes,
+        only_rtl, board_package, board
+):
+    obj = dict(
+        connectome = connectome,
+        fp_bits = fp_bits,
+        max_n_neurons = max_n_neurons,
+        n_ticks = 0,
+        sugar_exp = False,
+        spike_frac = None
+    )
+    ts = datetime.now().strftime("%Y%m%d-%H%M")
+    rel_name = f"{ocl_path.stem}-{ts}"
+    output_flag = output_path / rel_name
+
+    flags = [
+        f"-o {output_flag}",
+        f"-seed={seed}",
+        "-parallel=16"
+    ]
+    if board_package:
+        flags.extend([
+            f"-board-package={board_package}",
+            f"-board={board}"
+        ])
+    flags.extend([
+        "-ffp-contract=fast",
+        "-ffp-reassociate",
+        "-cl-fast-relaxed-math",
+        "-cl-mad-enable",
+        "-bsp-flow=flat"
+    ])
+    if only_rtl:
+        flags.append("-rtl")
+    includes = ["."]
+    ps = get_sim_params(obj, seed)
+    defines = get_preprocessor_defines(
+        ps,
+        neu_align, syn_align, syn_grp_align, n_lanes,
+        True
+    )
+    opts = format_opts(flags, includes, defines)
+    cmd = f"aoc {opts} {ocl_path}"
+    print("== Synthesizing %s ==" % rel_name)
+    print(f"  {cmd}")
+    system(cmd)
+
+@cli.command()
+def print_tables():
+    tables.print_tables(False)
 
 def main():
     cli()
