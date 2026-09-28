@@ -7,7 +7,7 @@ the article "High-Performance SNN Simulation of FlyWire on the Agilex
 
 The simulator depends on a number of easily installable Python
 libraries. It also depends on the non-standard OpenCL wrapper
-[ml-stuff](https://github.com/bjourne/ml-stuff), which must be
+[myopencl](https://github.com/bjourne/myopencl), which must be
 installed from source. Intel FPGA SDK for OpenCL 21.2 and Quartus 21.2
 is required for hardware synthesis.
 
